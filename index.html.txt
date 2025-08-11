@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Tài Xỉu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e0f7fa;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #00796b;
+        }
+        button {
+            background-color: #00796b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #004d40;
+        }
+        .result {
+            margin-top: 30px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #004d40;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Tool Tài Xỉu</h1>
+    <p>Nhấn nút để dự đoán kết quả</p>
+    <button onclick="duDoan()">Dự đoán ngay</button>
+    <div class="result" id="ketqua"></div>
+
+    <script>
+        function duDoan() {
+            let ketQua = Math.random() < 0.5 ? "Tài" : "Xỉu";
+            document.getElementById("ketqua").innerText = "Dự đoán: " + ketQua;
+        }
+    </script>
+
+</body>
+</html>
