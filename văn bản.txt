@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tool Dự Đoán Tài Xỉu — Nhập tay / Paste / CSV</title>
+<style>
+  :root{
+    --bg1: #e6f7ff;
+    --green: #0b8bdc;
+    --green-dark:#05679a;
+    --panel:#ffffff;
+    --muted:#5b6b79;
+  }
+  body{
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    margin:0; padding:20px;
+    background: linear-gradient(180deg,var(--bg1),#f7fdff);
+    color: #03314b;
+  }
+  .wrap{
+    max-width:1100px;
+    margin: 10px auto;
+    background: var(--panel);
+    border-radius:10px;
+    box-shadow: 0 6px 20px rgba(3,49,75,0.08);
+    padding:20px;
+  }
+  h1{ margin:0 0 8px; color:var(--green-dark) }
+  p.lead{ margin:0 0 18px; color:var(--muted) }
+
+  .row{ display:flex; gap:16px; flex-wrap:wrap; }
+  .col{ flex:1 1 320px; min-width:280px; }
+
+  .card{
+    background:#fff; border:1px solid #eef6fb; border-radius:8px; padding:12px;
+  }
+  label{ display:block; font-weight:600; margin-bottom:6px; color:var(--green-dark) }
+  textarea{ width:100%; min-height:120px; resize:vertical; padding:8px; border-radius:6px; border:1px solid #dbeefb; }
+  input[type="file"]{ width:100%; }
+  .btn{
+    background:linear-gradient(180deg,var(--green),var(--green-dark));
+    color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer;
+    font-weight:700; box-shadow:0 6px 12px rgba(11,139,220,0.18)
+  }
+  .btn.secondary{ background:#fff; color:var(--green); border:1px solid #dbeefb; box-shadow:none }
+  .result{
+    margin-top:12px; padding:12px; border-radius:8px; background:linear-gradient(90deg,#f7fcff,#ffffff);
+    border:1px solid #e6f7ff;
+  }
+  table{ width:100%; border-collapse:collapse; }
+  th,td{ text-align:left; padding:6px 8px; border-bottom:1px solid #f2f9ff; font-size:13px }
+  .stat{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  .pill{ background:#f0fbff; border:1px solid #d8f2ff; padding:6px 8px; border-radius:999px; color:var(--green-dark); font-weight:600 }
+
+  .history-list{ max-height:170px; overflow:auto; padding:6px; background:#fbfeff; border-radius:6px; border:1px solid #eef9ff }
+  .small{ font-size:13px; color:var(--muted) }
+  .flex-between{ display:flex; justify-content:space-between; align-items:center; gap:10px }
+  footer{ margin-top:12px; color:var(--muted); font-size:13px; text-align:right }
+  .confidence { font-size:18px; font-weight:800; color:var(--green-dark); }
+  .bar{ height:14px; background:#eaf7ff; border-radius:999px; overflow:hidden; margin-top:6px }
+  .bar-inner{ height:100%; background:linear-gradient(90deg,#7bd0ff,#0b8bdc); width:0%; }
+  .note{ font-size:13px; color:#7a8a96; margin-top:6px }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Tool Dự đoán Tài/Xỉu (Nhập tay · Paste · CSV)</h1>
+    <p class="lead">Nhập lịch sử kết quả từ nhà cái (Tài/Xỉu). Hệ thống sẽ phân tích bằng nhiều phương pháp cơ bản và đưa ra dự đoán cho ván tiếp theo cùng % tin cậy.</p>
+
+    <div class="row">
+      <div class="col card">
+        <label>1) Dán / gõ lịch sử (ví dụ: Tài, Xỉu, Xỉu, Tài)</label>
+        <textarea id="manualInput" placeholder="Tài, Xỉu, Xỉu, Tài, Tài, Xỉu ..."></textarea>
+        <div style="display:flex; gap:8px; margin-top:8px">
+          <button class="btn" id="btnAnalyze">Phân tích</button>
+          <button class="btn secondary" id="btnClearManual">Xóa</button>
+        </div>
+        <p class="note">Hỗ trợ các từ: Tài, Tai, T, Xỉu, Xiu, X, Xi (không phân biệt hoa thường). Có thể copy từ trang nhà cái (dán HTML) hoặc dán 1 cột text.</p>
+      </div>
+
+      <div class="col card">
+        <label>2) Dán HTML / Text từ trang nhà cái (bảng/kết quả)</label>
+        <textarea id="pasteHtml" placeholder="Paste nguyên đoạn bạn copy từ trang (bảng html hoặc text)"></textarea>
+        <div style="display:flex; gap:8px; margin-top:8px">
+          <button class="btn" id="btnParseHtml">Parse & Phân tích</button>
+          <button class="btn secondary" id="btnClearPaste">Xóa</button>
+        </div>
+        <p class="note">Mình sẽ cố gắng trích các từ khóa Tài/Xỉu trong đoạn dán. Nếu không chính xác, hãy tinh chỉnh bằng ô nhập tay.</p>
+      </div>
+
+      <div class="col card">
+        <label>3) Upload file CSV (1 cột chứa kết quả)</label>
+        <input id="csvFile" type="file" accept=".csv,text/csv" />
+        <div style="display:flex; gap:8px; margin-top:8px">
+          <button class="btn" id="btnLoadCSV">Load CSV</button>
+          <button class="btn secondary" id="btnClearCSV">Xóa</button>
+        </div>
+        <p class="note">CSV mẫu: mỗi dòng là 'Tài' hoặc 'Xỉu' hoặc 'T'/'X'. Nếu có nhiều cột, công cụ sẽ dò cột chứa nhiều từ Tài/Xỉu nhất.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:18px" class="card">
+      <div class="flex-between">
+        <div>
+          <label>Kết quả phân tích</label>
+          <div class="small">Số ván đã nhập: <span id="count">0</span></div>
+        </div>
+        <div>
+          <button class="btn" id="btnExport">Xuất kết quả (Copy)</button>
+        </div>
+      </div>
+
+      <div class="result" id="resultPanel" style="display:none">
+        <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap">
+          <div>
+            <div class="small">Dự đoán ván tiếp theo</div>
+            <div style="display:flex; gap:12px; align-items:center; margin-top:6px">
+              <div class="confidence" id="predLabel">—</div>
+              <div class="small">tin cậy: <strong id="predPerc">—</strong></div>
+            </div>
+            <div class="bar"><div class="bar-inner" id="barInner"></div></div>
+            <div class="note" id="explainText"></div>
+          </div>
+
+          <div style="min-width:220px">
+            <div class="small">Thống kê cơ bản</div>
+            <div class="stat">
+              <div class="pill">Tài: <span id="statTai">0</span></div>
+              <div class="pill">Xỉu: <span id="statXiu">0</span></div>
+              <div class="pill">Tỉ lệ Tài: <span id="ratioTai">0%</span></div>
+            </div>
+          </div>
+
+          <div style="flex:1 1 320px">
+            <div class="small">Thống kê chuyển trạng thái (Markov bậc-1)</div>
+            <table id="markovTable">
+              <thead><tr><th></th><th>→ Tài</th><th>→ Xỉu</th></tr></thead>
+              <tbody>
+                <tr><th>From Tài</th><td id="m_tt">-</td><td id="m_tx">-</td></tr>
+                <tr><th>From Xỉu</th><td id="m_xt">-</td><td id="m_xx">-</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Gợi ý dựa trên mẫu lặp ngắn (last-k)</label>
+          <div class="history-list" id="patternHints">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px" class="card">
+      <label>Chi tiết lịch sử (mới nhất ở trên)</label>
+      <div class="history-list" id="historyArea">—</div>
+    </div>
+
+    <footer>Tool phân tích cơ bản — mục đích tham khảo, KHÔNG đảm bảo chiến thắng.</footer>
+  </div>
+
+<script>
+/* ====== Utility parsing functions ====== */
+function normalizeToken(tok){
+  if(!tok) return null;
+  tok = tok.toString().trim().toLowerCase();
+  if(!tok) return null;
+  // Map common variants
+  if(tok === 't' || tok==='tai' || tok==='tài' || tok==='taI'.toLowerCase()) return 'T';
+  if(tok === 'x' || tok==='xiu' || tok==='xỉu' || tok==='xi') return 'X';
+  // Sometimes results like "Tài(11)" or "T" with extra chars
+  if(tok.indexOf('tài')!==-1 || tok.indexOf('tai')!==-1 || /^t/i.test(tok)) return 'T';
+  if(tok.indexOf('xỉu')!==-1 || tok.indexOf('xiu')!==-1 || /^x/i.test(tok)) return 'X';
+  // Also handle numbers if present like "11 (Tài)"
+  if(tok.match(/\b(t|tai|tài)\b/i)) return 'T';
+  if(tok.match(/\b(x|xiu|xỉu)\b/i)) return 'X';
+  return null;
+}
+
+function parseManualText(text){
+  // split by commas, spaces, newlines, tabs, semicolon
+  let parts = text.split(/[\n,;|\/]+/).map(s => s.trim()).filter(s=>s);
+  let res = [];
+  for(let p of parts){
+    // sometimes user pasted inline table; split further by spaces
+    let tokens = p.split(/\s+/);
+    for(let t of tokens){
+      let n = normalizeToken(t.replace(/[\(\)\[\]\d\:\-]/g,'')); // remove digits/paren
+      if(n) res.push(n);
+    }
+  }
+  return res;
+}
+
+/* Try to parse HTML/text block (paste from website)*/
+function parsePastedHtml(text){
+  // try: extract occurrences of 'Tài' or 'Xỉu' (any case) from text
+  let matches = text.match(/(tài|tai|xỉu|xiu|T|X|t|x)/gi);
+  if(!matches) return [];
+  // map to normalized tokens
+  let out = [];
+  for(let m of matches){
+    let n = normalizeToken(m);
+    if(n) out.push(n);
+  }
+  // Heuristic: sometimes the page contains many unrelated 't' or 'x' - filter by length and position
+  if(out.length > 200 && text.length>5000){
+    // If too many, try to be stricter: look for words 'Tài' or 'Xỉu' (unicode)
+    let mm = text.match(/\b(Tài|Tài|Xỉu|Xỉu|tai|xiu)\b/gi) || [];
+    out = mm.map(m=>normalizeToken(m)).filter(Boolean);
+  }
+  return out;
+}
+
+/* CSV parser (simple) */
+function parseCSVContent(content){
+  // naive split lines then split by comma or semicolon or tab
+  let lines = content.split(/\r?\n/).map(l=>l.trim()).filter(l=>l);
+  // If single column (like "Tài" each line), take first token
+  // If multi column, choose column index that has most matches
+  if(lines.length===0) return [];
+  let cols = lines[0].split(/,|\t|;/).length;
+  let table = lines.map(l => l.split(/,|\t|;/).map(c=>c.trim()));
+  if(cols === 1){
+    return table.map(r => normalizeToken(r[0])).filter(Boolean);
+  } else {
+    // detect best column
+    let bestIdx=-1, bestCount= -1;
+    for(let c=0;c<cols;c++){
+      let count=0;
+      for(let r of table){
+        if(normalizeToken(r[c])) count++;
+      }
+      if(count>bestCount){bestCount=count; bestIdx=c;}
+    }
+    if(bestIdx===-1) return [];
+    return table.map(r=>normalizeToken(r[bestIdx])).filter(Boolean);
+  }
+}
+
+/* ====== Analysis algorithms ====== */
+function analyzeSequence(seq){
+  // seq: array of 'T'/'X'
+  let n = seq.length;
+  let res = {count:n, tai:0, xiu:0, ratioTai:0, markov:{tt:0,tx:0,xt:0,xx:0}, lastPatterns:[], prediction:null};
+
+  for(let s of seq){
+    if(s==='T') res.tai++;
+    if(s==='X') res.xiu++;
+  }
+  res.ratioTai = res.tai / Math.max(1,n);
+
+  // Markov bậc-1 counts
+  let tt=0, tx=0, xt=0, xx=0, fromT=0, fromX=0;
+  for(let i=0;i<n-1;i++){
+    if(seq[i]==='T'){
+      fromT++;
+      if(seq[i+1]==='T') tt++; else tx++;
+    } else {
+      fromX++;
+      if(seq[i+1]==='T') xt++; else xx++;
+    }
+  }
+  // probabilities
+  res.markov = {
+    tt: fromT? tt/fromT : null,
+    tx: fromT? tx/fromT : null,
+    xt: fromX? xt/fromX : null,
+    xx: fromX? xx/fromX : null
+  };
+
+  // last-k pattern search: try k from 4 down to 1, find most common next after that pattern
+  let maxLook=6;
+  let patternHints = [];
+  for(let k=Math.min(maxLook,n-1); k>=1; k--){
+    let pat = seq.slice(n-k).join('');
+    // find occurrences where this pattern appears and record next
+    let nextCounts = {T:0,X:0};
+    for(let i=0;i<=n-k-1;i++){
+      if(seq.slice(i,i+k).join('') === pat){
+        let nx = seq[i+k];
+        if(nx) nextCounts[nx]++;
+      }
+    }
+    let total = nextCounts.T + nextCounts.X;
+    if(total>0){
+      let prefer = nextCounts.T > nextCounts.X ? 'T' : (nextCounts.X>nextCounts.T ? 'X' : null);
+      patternHints.push({k, pat, nextCounts, prefer, total});
+    }
+  }
+  res.lastPatterns = patternHints;
+
+  // Simple ensemble predictor combining:
+  // - baseline: overall freq
+  // - markov: prob from last state
+  // - pattern: best last-k preference (weighted by total occurrences)
+  // compute score_T and score_X
+  let scoreT=0, scoreX=0;
+  // weight settings (tunable)
+  let w_freq = 0.4, w_markov=0.35, w_pattern=0.25;
+
+  // freq
+  scoreT += w_freq * (res.ratioTai);
+  scoreX += w_freq * (1 - res.ratioTai);
+
+  // markov (from last state)
+  let last = seq[n-1];
+  if(last==='T' && res.markov.tt!=null){
+    scoreT += w_markov * res.markov.tt;
+    scoreX += w_markov * res.markov.tx;
+  } else if(last==='X' && res.markov.xt!=null){
+    scoreT += w_markov * res.markov.xt;
+    scoreX += w_markov * res.markov.xx;
+  } else {
+    // if no markov info, split evenly
+    scoreT += w_markov*0.5; scoreX += w_markov*0.5;
+  }
+
+  // pattern: use best (largest total) pattern hint if exists
+  if(patternHints.length>0){
+    let best = patternHints.reduce((a,b)=> a.total>b.total?a:b);
+    let total = best.total;
+    let pT = total? best.nextCounts.T/total : 0.5;
+    let pX = total? best.nextCounts.X/total : 0.5;
+    // scale pattern weight by min(1, total/10) so frequent patterns stronger
+    let scale = Math.min(1, total/10);
+    scoreT += w_pattern * scale * pT;
+    scoreX += w_pattern * scale * pX;
+  } else {
+    scoreT += w_pattern*0.5; scoreX += w_pattern*0.5;
+  }
+
+  // normalize
+  let sum = scoreT + scoreX;
+  let probT = sum? scoreT/sum : 0.5;
+  let probX = sum? scoreX/sum : 0.5;
+
+  res.prediction = {T:probT, X:probX, label: probT>probX ? 'Tài' : 'Xỉu', confidence: Math.round(Math.max(probT,probX)*100)};
+
+  return res;
+}
+
+/* ====== UI handling ====== */
+let currentSeq = [];
+
+function showResult(res, seq){
+  document.getElementById('resultPanel').style.display='block';
+  document.getElementById('count').textContent = res.count;
+  document.getElementById('statTai').textContent = res.tai;
+  document.getElementById('statXiu').textContent = res.xiu;
+  document.getElementById('ratioTai').textContent = Math.round(res.ratioTai*100) + '%';
+
+  document.getElementById('m_tt').textContent = res.markov.tt===null?'-':(Math.round(res.markov.tt*100)+'%');
+  document.getElementById('m_tx').textContent = res.markov.tx===null?'-':(Math.round(res.markov.tx*100)+'%');
+  document.getElementById('m_xt').textContent = res.markov.xt===null?'-':(Math.round(res.markov.xt*100)+'%');
+  document.getElementById('m_xx').textContent = res.markov.xx===null?'-':(Math.round(res.markov.xx*100)+'%');
+
+  document.getElementById('predLabel').textContent = res.prediction.label;
+  document.getElementById('predPerc').textContent = res.prediction.confidence + '%';
+  document.getElementById('barInner').style.width = (res.prediction.confidence) + '%';
+  // explain text
+  let explain = `Kết hợp: tỉ lệ hiện tại ${Math.round(res.ratioTai*100)}%, `;
+  explain += `dựa Markov & mẫu lặp (last-k).`;
+  document.getElementById('explainText').textContent = explain;
+  // pattern hints
+  let ph = res.lastPatterns.map(p=>{
+    return `k=${p.k}: pattern=${p.pat} → T:${p.nextCounts.T} X:${p.nextCounts.X} (prefer: ${p.prefer||'-'})`;
+  }).join('\n');
+  document.getElementById('patternHints').textContent = ph || 'Không tìm thấy pattern lặp đáng kể.';
+  // history listing
+  document.getElementById('historyArea').innerHTML = seq.slice().reverse().map((s,i)=>`<div>${seq.length-i}. ${s==='T'?'Tài':'Xỉu'}</div>`).join('');
+}
+
+function analyzeSeqFromArray(arr){
+  if(!arr || arr.length<3){
+    alert('Vui lòng nhập ít nhất 3 kết quả để phân tích (ví dụ: Tài, Xỉu, Tài).');
+    return;
+  }
+  currentSeq = arr;
+  let res = analyzeSequence(arr);
+  showResult(res, arr);
+}
+
+/* Handlers */
+document.getElementById('btnAnalyze').addEventListener('click', ()=>{
+  let raw = document.getElementById('manualInput').value;
+  let seq = parseManualText(raw);
+  if(seq.length===0){ alert('Không nhận được kết quả hợp lệ từ ô nhập tay. Hãy nhập dạng: Tài, Xỉu, ...'); return; }
+  analyzeSeqFromArray(seq);
+});
+document.getElementById('btnClearManual').addEventListener('click', ()=>{
+  document.getElementById('manualInput').value='';
+});
+
+document.getElementById('btnParseHtml').addEventListener('click', ()=>{
+  let raw = document.getElementById('pasteHtml').value;
+  let seq = parsePastedHtml(raw);
+  if(seq.length===0){ alert('Không trích được Tài/Xỉu từ đoạn dán. Hãy thử dán phần khác hoặc dùng ô nhập tay.'); return; }
+  analyzeSeqFromArray(seq);
+});
+document.getElementById('btnClearPaste').addEventListener('click', ()=>{ document.getElementById('pasteHtml').value=''; });
+
+document.getElementById('btnLoadCSV').addEventListener('click', ()=>{
+  let f = document.getElementById('csvFile').files[0];
+  if(!f){ alert('Chưa chọn file CSV.'); return; }
+  let reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      let seq = parseCSVContent(e.target.result);
+      if(seq.length===0){ alert('Không tìm thấy dữ liệu Tài/Xỉu trong CSV.'); return; }
+      analyzeSeqFromArray(seq);
+    }catch(err){ alert('Lỗi đọc CSV: '+err.message); }
+  };
+  reader.readAsText(f,'UTF-8');
+});
+document.getElementById('btnClearCSV').addEventListener('click', ()=>{ document.getElementById('csvFile').value=''; });
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  if(!currentSeq || currentSeq.length===0){ alert('Chưa có dữ liệu phân tích.'); return; }
+  let res = analyzeSequence(currentSeq);
+  let out = `DỰ ĐOÁN: ${res.prediction.label} (${res.prediction.confidence}%)\nSố ván: ${res.count}\nTỉ lệ Tài: ${Math.round(res.ratioTai*100)}%\nMarkov: from T → T:${res.markov.tt===null?'-':Math.round(res.markov.tt*100)+'%'} , to X:${res.markov.tx===null?'-':Math.round(res.markov.tx*100)+'%'}\n\nLịch sử mới nhất (trên):\n${currentSeq.slice().reverse().map((s,i,arr)=>`${arr.length-i}. ${s==='T'?'Tài':'Xỉu'}`).join('\n')}\n\nGHI CHÚ: Tool chỉ phân tích cơ bản; KHÔNG đảm bảo kết quả.`;
+  // copy to clipboard
+  navigator.clipboard.writeText(out).then(()=>{ alert('Kết quả đã copy vào clipboard.'); }).catch(()=>{ prompt('Kết quả (copy thủ công):', out); });
+});
+
+/* Optional: allow dropping a text file */
+document.addEventListener('dragover', function(e){ e.preventDefault(); });
+document.addEventListener('drop', function(e){ e.preventDefault(); });
+
+</script>
+</body>
+</html>
